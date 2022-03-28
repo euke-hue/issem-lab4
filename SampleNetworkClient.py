@@ -48,6 +48,7 @@ class SimpleNetworkClient :
         s = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
         s.sendto(b"AUTH %s" % pw, ("127.0.0.1", p))
         msg, addr = s.recvfrom(1024)
+        print(msg.strip())
         return msg.strip()
 
     def updateInfTemp(self, frame) :
