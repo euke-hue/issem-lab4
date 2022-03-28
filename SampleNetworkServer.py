@@ -1,7 +1,7 @@
 import threading
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-import infinc
+#import infinc
 import time
 import math
 import socket
@@ -12,7 +12,7 @@ import random
 import string
 import rsa
 import decouple
-from decoupble import config
+from decouple import config
 class SmartNetworkThermometer (threading.Thread) :
     open_cmds = ["AUTH", "LOGOUT"]
     prot_cmds = ["SET_DEGF", "SET_DEGC", "SET_DEGK", "GET_TEMP", "UPDATE_TEMP"]
