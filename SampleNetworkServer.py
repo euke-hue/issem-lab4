@@ -176,29 +176,3 @@ class SimpleClient :
         self.incLn.set_data(range(30), self.incTemps)
         return self.incLn,
 
-UPDATE_PERIOD = .05 #in seconds
-SIMULATION_STEP = .1 #in seconds
-
-#create a new instance of IncubatorSimulator
-bob = infinc.Human(mass = 8, length = 1.68, temperature = 36 + 273)
-#bobThermo = infinc.SmartThermometer(bob, UPDATE_PERIOD)
-bobThermo = SmartNetworkThermometer(bob, UPDATE_PERIOD, 23456)
-bobThermo.start() #start the thread
-
-inc = infinc.Incubator(width = 1, depth=1, height = 1, temperature = 37 + 273, roomTemperature = 20 + 273)
-#incThermo = infinc.SmartNetworkThermometer(inc, UPDATE_PERIOD)
-incThermo = SmartNetworkThermometer(inc, UPDATE_PERIOD, 23457)
-incThermo.start() #start the thread
-
-incHeater = infinc.SmartHeater(powerOutput = 1500, setTemperature = 45 + 273, thermometer = incThermo, updatePeriod = UPDATE_PERIOD)
-inc.setHeater(incHeater)
-incHeater.start() #start the thread
-
-sim = infinc.Simulator(infant = bob, incubator = inc, roomTemp = 20 + 273, timeStep = SIMULATION_STEP, sleepTime = SIMULATION_STEP / 10)
-
-sim.start()
-
-sc = SimpleClient(bobThermo, incThermo)
-
-plt.grid()
-plt.show()
