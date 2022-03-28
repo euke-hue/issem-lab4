@@ -1,7 +1,7 @@
 import threading
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-#import infinc
+import infinc
 import time
 import math
 import socket
