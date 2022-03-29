@@ -118,6 +118,7 @@ class SmartNetworkThermometer (threading.Thread) :
                     print("this worked")
                     decrypted_msg = rsa.decrypt(msg, self.privatekey)
                     decoded_msg = decrypted_msg.decode("utf-8").strip()
+                    print(decoded_msg)
                     cmds = decoded_msg.split(' ')
 
                     if len(cmds) == 1 : # protected commands case
