@@ -1,3 +1,4 @@
+
 import threading
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -10,9 +11,18 @@ import os
 import errno
 import random
 import string
-import rsa
-import decouple
-from decouple import config
+import rsa 
+from decouple import config # used for env file
+
+def servergenerateKeys():
+    print("this ran")
+    (publickey, privatekey) = rsa.newkeys(2048)
+    with open ('pubkey.pem', 'wb') as p:
+        p.write(publickey.save_pkcs1('PEM'))
+    with open ('privkey.pem', 'wb') as p:
+        p.write(privatekey.save_pkcs1('PEM'))
+
+
 class SmartNetworkThermometer (threading.Thread) :
     open_cmds = ["AUTH", "LOGOUT"]
     prot_cmds = ["SET_DEGF", "SET_DEGC", "SET_DEGK", "GET_TEMP", "UPDATE_TEMP"]
@@ -24,10 +34,13 @@ class SmartNetworkThermometer (threading.Thread) :
         self.updatePeriod = updatePeriod
         self.curTemperature = 0
         self.updateTemperature()
-
-        #made private atrribute 
         self.__tokens = []
-
+        
+        with open ('pubkey.pem', 'rb') as p:
+            self.publickey = rsa.PublicKey.load_pkcs1(p.read())
+        with open ('privkey.pem', 'rb') as p:
+            self.privatekey = rsa.PrivateKey.load_pkcs1(p.read())
+        
         self.serverSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
         self.serverSocket.bind(("127.0.0.1", port))
         fcntl.fcntl(self.serverSocket, fcntl.F_SETFL, os.O_NONBLOCK)
@@ -57,22 +70,28 @@ class SmartNetworkThermometer (threading.Thread) :
         return self.curTemperature
 
     def processCommands(self, msg, addr) :
+        
         cmds = msg.split(';')
         for c in cmds :
             cs = c.split(' ')
             if len(cs) == 2 : #should be either AUTH or LOGOUT
                 if cs[0] == "AUTH":
-                    #call the check password here in our env file muahaha
-                    if cs[1] == config('key') :
-                        if len(self.__tokens) < 1:
-                            self.__tokens.append(''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(16)))
-                            self.serverSocket.sendto(self.tokens[-1].encode("utf-8"), addr)
-                        else:
-                            pass
+                    if cs[1] == config('SECRET_KEY') :
+                            if len(self.__tokens) < 1:
+                                self.__tokens.append(''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(16)))
+                                encoded_token = self.__tokens[-1].encode("utf-8")
+                                encrypted_token = rsa.encrypt(encoded_token, self.publickey)
+                                self.serverSocket.sendto(encrypted_token, addr)
+                            else:
+                                pass
+                        
+                        
+                        #encrypt the token here then encode and then send it
+           
                         #print (self.tokens[-1])
                 elif cs[0] == "LOGOUT":
                     if cs[1] in self.tokens :
-                        self.tokens.remove(cs[1])
+                        self.__tokens.remove(cs[1])
                 else : #unknown command
                     self.serverSocket.sendto(b"Invalid Command\n", addr)
             elif c == "SET_DEGF" :
@@ -90,29 +109,59 @@ class SmartNetworkThermometer (threading.Thread) :
 
 
     def run(self) : #the running function
+        servergenerateKeys()
         while True : 
             try :
+
                 msg, addr = self.serverSocket.recvfrom(1024)
-                msg = msg.decode("utf-8").strip()
-                cmds = msg.split(' ')
-                if len(cmds) == 1 : # protected commands case
-                    semi = msg.find(';')
-                    if semi != -1 : #if we found the semicolon
-                        #print (msg)
-                        if msg[:semi] in self.tokens : #if its a valid token
-                            self.processCommands(msg[semi+1:], addr)
+                if len(msg) > 22:
+                    print("this worked")
+                    decrypted_msg = rsa.decrypt(msg, self.privatekey)
+                    decoded_msg = decrypted_msg.decode("utf-8").strip()
+                    cmds = decoded_msg.split(' ')
+
+                    if len(cmds) == 1 : # protected commands case
+                        print("thiswastoken")
+                        semi = decoded_msg.find(';')
+                        if semi != -1 : #if we found the semicolon
+                            #print (msg)
+                            if decoded_msg[:semi] in self.__tokens : #if its a valid token
+                                self.processCommands(decoded_msg[semi+1:], addr)
+                            else :
+                                self.serverSocket.sendto(b"Bad Token\n", addr)
                         else :
-                            self.serverSocket.sendto(b"Bad Token\n", addr)
+                                self.serverSocket.sendto(b"Bad Command\n", addr)
+                    elif len(cmds) == 2 :
+                        print("this was auth")
+                        if cmds[0] in self.open_cmds : #if its AUTH or LOGOUT
+                            self.processCommands(decoded_msg, addr) 
+                        else :
+                            self.serverSocket.sendto(b"Authenticate First\n", addr)
                     else :
-                            self.serverSocket.sendto(b"Bad Command\n", addr)
-                elif len(cmds) == 2 :
-                    if cmds[0] in self.open_cmds : #if its AUTH or LOGOUT
-                        self.processCommands(msg, addr) 
+                        # otherwise bad command
+                        self.serverSocket.sendto(b"Bad Command\n", addr)
+
+                else:                
+                    msg = msg.decode("utf-8").strip()
+                    cmds = msg.split(' ')
+                    if len(cmds) == 1 : # protected commands case
+                        semi = msg.find(';')
+                        if semi != -1 : #if we found the semicolon
+                            #print (msg)
+                            if msg[:semi] in self.__tokens : #if its a valid token
+                                self.processCommands(msg[semi+1:], addr)
+                            else :
+                                self.serverSocket.sendto(b"Bad Token\n", addr)
+                        else :
+                                self.serverSocket.sendto(b"Bad Command\n", addr)
+                    elif len(cmds) == 2 :
+                        if cmds[0] in self.open_cmds : #if its AUTH or LOGOUT
+                            self.processCommands(msg, addr) 
+                        else :
+                            self.serverSocket.sendto(b"Authenticate First\n", addr)
                     else :
-                        self.serverSocket.sendto(b"Authenticate First\n", addr)
-                else :
-                    # otherwise bad command
-                    self.serverSocket.sendto(b"Bad Command\n", addr)
+                        # otherwise bad command
+                        self.serverSocket.sendto(b"Bad Command\n", addr)
     
             except IOError as e :
                 if e.errno == errno.EWOULDBLOCK :
@@ -175,31 +224,3 @@ class SimpleClient :
         self.incTemps = self.incTemps[-30:]
         self.incLn.set_data(range(30), self.incTemps)
         return self.incLn,
-
-UPDATE_PERIOD = .05 #in seconds
-SIMULATION_STEP = .1 #in seconds
-
-#create a new instance of IncubatorSimulator
-bob = infinc.Human(mass = 8, length = 1.68, temperature = 36 + 273)
-#bobThermo = infinc.SmartThermometer(bob, UPDATE_PERIOD)
-bobThermo = SmartNetworkThermometer(bob, UPDATE_PERIOD, 23456)
-bobThermo.start() #start the thread
-
-inc = infinc.Incubator(width = 1, depth=1, height = 1, temperature = 37 + 273, roomTemperature = 20 + 273)
-#incThermo = infinc.SmartNetworkThermometer(inc, UPDATE_PERIOD)
-incThermo = SmartNetworkThermometer(inc, UPDATE_PERIOD, 23457)
-incThermo.start() #start the thread
-
-incHeater = infinc.SmartHeater(powerOutput = 1500, setTemperature = 45 + 273, thermometer = incThermo, updatePeriod = UPDATE_PERIOD)
-inc.setHeater(incHeater)
-incHeater.start() #start the thread
-
-sim = infinc.Simulator(infant = bob, incubator = inc, roomTemp = 20 + 273, timeStep = SIMULATION_STEP, sleepTime = SIMULATION_STEP / 10)
-
-sim.start()
-
-sc = SimpleClient(bobThermo, incThermo)
-
-plt.grid()
-plt.show()
-
