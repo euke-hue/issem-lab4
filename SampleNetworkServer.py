@@ -109,7 +109,7 @@ class SmartNetworkThermometer (threading.Thread) :
 
 
     def run(self) : #the running function
-        servergenerateKeys()
+        #servergenerateKeys()
         while True : 
             try :
 
