@@ -30,8 +30,8 @@ class SimpleNetworkClient :
         self.infPort = port1
         self.incPort = port2
 
-        self.infToken = None
-        self.incToken = None
+        self.__infToken = None
+        self.__incToken = None
 
         self.ani = animation.FuncAnimation(self.fig, self.updateInfTemp, interval=500)
         self.ani2 = animation.FuncAnimation(self.fig, self.updateIncTemp, interval=500)
@@ -83,10 +83,10 @@ class SimpleNetworkClient :
 
     def updateInfTemp(self, frame) :
         self.updateTime()
-        if self.infToken is None : #not yet authenticated
-            self.infToken = self.authenticate(self.infPort)
+        if self.__infToken is None : #not yet authenticated
+            self.__infToken = self.authenticate(self.infPort)
 
-        self.infTemps.append(self.getTemperatureFromPort(self.infPort, self.infToken)-273)
+        self.infTemps.append(self.getTemperatureFromPort(self.infPort, self.__infToken)-273)
         #self.infTemps.append(self.infTemps[-1] + 1)
         self.infTemps = self.infTemps[-30:]
         self.infLn.set_data(range(30), self.infTemps)
@@ -94,10 +94,10 @@ class SimpleNetworkClient :
 
     def updateIncTemp(self, frame) :
         self.updateTime()
-        if self.incToken is None : #not yet authenticated
-            self.incToken = self.authenticate(self.incPort)
+        if self.__incToken is None : #not yet authenticated
+            self.__incToken = self.authenticate(self.incPort)
 
-        self.incTemps.append(self.getTemperatureFromPort(self.incPort, self.incToken)-273)
+        self.incTemps.append(self.getTemperatureFromPort(self.incPort, self.__incToken)-273)
         #self.incTemps.append(self.incTemps[-1] + 1)
         self.incTemps = self.incTemps[-30:]
         self.incLn.set_data(range(30), self.incTemps)
