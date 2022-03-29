@@ -68,9 +68,8 @@ class SimpleNetworkClient :
         #send the encrypted password
         password = "AUTH"+" "+config('SECRET_KEY')
         encoded_password = password.encode("utf-8")
-        encryptedpassword = rsa.encrypt(encoded_password, self.publickey)
         s = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        s.sendto(encryptedpassword, ("127.0.0.1", p))
+        s.sendto(encoded_password, ("127.0.0.1", p))
         #receive the token here
         msg, addr = s.recvfrom(1024)
         #decrypt the received token
