@@ -1,8 +1,18 @@
+
+import threading
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import infinc
 import time
 import math
 import socket
+import fcntl
+import os
+import errno
+import random
+import string
+import rsa 
+from decouple import config # used for env file
 
 class SimpleNetworkClient :
     def __init__(self, port1, port2) :
@@ -25,6 +35,10 @@ class SimpleNetworkClient :
 
         self.ani = animation.FuncAnimation(self.fig, self.updateInfTemp, interval=500)
         self.ani2 = animation.FuncAnimation(self.fig, self.updateIncTemp, interval=500)
+        with open ('pubkey.pem', 'rb') as p:
+            self.publickey = rsa.PublicKey.load_pkcs1(p.read())
+        with open ('privkey.pem', 'rb') as p:
+            self.privatekey = rsa.PrivateKey.load_pkcs1(p.read())
 
     def updateTime(self) :
         now = time.time()
@@ -38,23 +52,39 @@ class SimpleNetworkClient :
             plt.title(time.strftime("%A, %Y-%m-%d", time.localtime(now)))
 
     def getTemperatureFromPort(self, p, tok) :
+        #the token that is passed in from updateInf or updateInc should be from the token variables
+        token = tok +";"+"GET_TEMP"
+        encoded_token = token.encode("utf-8")
+        encryptedtoken = rsa.encrypt(encoded_token, self.publickey)
         s = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        s.sendto(b"%s;GET_TEMP" % tok, ("127.0.0.1", p))
+        s.sendto(encryptedtoken, ("127.0.0.1", p))
         msg, addr = s.recvfrom(1024)
-        m = msg.decode("utf-8")
+        #the mssage you receive SHOULD just be the inf of inc temp
+        m = msg.decode("utf-8").strip()
+        print(m,"tempreceived!!!")
         return (float(m))
 
-    def authenticate(self, p, pw) :
+    def authenticate(self, p) :
+        #send the encrypted password
+        password = "AUTH"+" "+config('SECRET_KEY')
+        encoded_password = password.encode("utf-8")
+        encryptedpassword = rsa.encrypt(encoded_password, self.publickey)
         s = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        s.sendto(b"AUTH %s" % pw, ("127.0.0.1", p))
+        s.sendto(encryptedpassword, ("127.0.0.1", p))
+        #receive the token here
         msg, addr = s.recvfrom(1024)
-        print(msg.strip())
-        return msg.strip()
+        #decrypt the received token
+        decrypt_msg = rsa.decrypt(msg, self.privatekey)
+        #decode the token
+        decoded_msg = decrypt_msg.decode("utf-8")
+        #strip the token and return it so it can get stored in the self.infToken or self.incToken
+        print(decoded_msg,"dcoded!!")
+        return decoded_msg.strip()
 
     def updateInfTemp(self, frame) :
         self.updateTime()
         if self.infToken is None : #not yet authenticated
-            self.infToken = self.authenticate(self.infPort, b"!Q#E%T&U8i6y4r2w")
+            self.infToken = self.authenticate(self.infPort)
 
         self.infTemps.append(self.getTemperatureFromPort(self.infPort, self.infToken)-273)
         #self.infTemps.append(self.infTemps[-1] + 1)
@@ -65,15 +95,10 @@ class SimpleNetworkClient :
     def updateIncTemp(self, frame) :
         self.updateTime()
         if self.incToken is None : #not yet authenticated
-            self.incToken = self.authenticate(self.incPort, b"!Q#E%T&U8i6y4r2w")
+            self.incToken = self.authenticate(self.incPort)
 
         self.incTemps.append(self.getTemperatureFromPort(self.incPort, self.incToken)-273)
         #self.incTemps.append(self.incTemps[-1] + 1)
         self.incTemps = self.incTemps[-30:]
         self.incLn.set_data(range(30), self.incTemps)
         return self.incLn,
-
-snc = SimpleNetworkClient(23456, 23457)
-
-plt.grid()
-plt.show()
