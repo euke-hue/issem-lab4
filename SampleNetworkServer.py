@@ -14,13 +14,13 @@ import string
 import rsa 
 from decouple import config # used for env file
 
-def servergenerateKeys():
-    print("this ran")
-    (publickey, privatekey) = rsa.newkeys(2048)
-    with open ('pubkey.pem', 'wb') as p:
-        p.write(publickey.save_pkcs1('PEM'))
-    with open ('privkey.pem', 'wb') as p:
-        p.write(privatekey.save_pkcs1('PEM'))
+#def servergenerateKeys():
+#    print("this ran")
+#    (publickey, privatekey) = rsa.newkeys(2048)
+#    with open ('pubkey.pem', 'wb') as p:
+#        p.write(publickey.save_pkcs1('PEM'))
+#    with open ('privkey.pem', 'wb') as p:
+#        p.write(privatekey.save_pkcs1('PEM'))
 
 
 class SmartNetworkThermometer (threading.Thread) :
