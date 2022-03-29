@@ -132,15 +132,6 @@ class SmartNetworkThermometer (threading.Thread) :
                                 self.serverSocket.sendto(b"Bad Token\n", addr)
                         else :
                                 self.serverSocket.sendto(b"Bad Command\n", addr)
-                    elif len(cmds) == 2 :
-                        print("this was auth")
-                        if cmds[0] in self.open_cmds : #if its AUTH or LOGOUT
-                            self.processCommands(decoded_msg, addr) 
-                        else :
-                            self.serverSocket.sendto(b"Authenticate First\n", addr)
-                    else :
-                        # otherwise bad command
-                        self.serverSocket.sendto(b"Bad Command\n", addr)
 
                 else:                
                     msg = msg.decode("utf-8").strip()
